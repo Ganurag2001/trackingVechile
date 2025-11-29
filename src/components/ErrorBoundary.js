@@ -1,62 +1,73 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 /**
  * Error Boundary Component for graceful error handling
+ * 
+ * Note: React doesn't have a hook equivalent for error boundaries yet.
+ * This is a functional component that wraps children but cannot catch errors
+ * from child components during render. For production error handling, 
+ * consider using react-error-boundary package.
  */
-export class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null
+export function ErrorBoundary({ children }) {
+  const [hasError, setHasError] = useState(false);
+  const [error, setError] = useState(null);
+  const [errorInfo, setErrorInfo] = useState(null);
+
+  // Handle errors from async operations and event handlers
+  const handleError = (err) => {
+    setHasError(true);
+    setError(err);
+    setErrorInfo({ componentStack: err.stack });
+    console.error('Error caught by boundary:', err);
+  };
+
+  // Expose error handler for child components to use
+  React.useEffect(() => {
+    window.__errorBoundary = handleError;
+    
+    // Catch unhandled promise rejections
+    const handleUnhandledRejection = (event) => {
+      handleError(event.reason);
     };
-  }
 
-  static getDerivedStateFromError(error) {
-    return { hasError: true };
-  }
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
-  componentDidCatch(error, errorInfo) {
-    this.setState({
-      error,
-      errorInfo
-    });
-    console.error('Error caught by boundary:', error, errorInfo);
-  }
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      delete window.__errorBoundary;
+    };
+  }, []);
 
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={styles.container}>
-          <div style={styles.card}>
-            <h1 style={styles.title}>⚠️ Something went wrong</h1>
-            <p style={styles.message}>
-              The application encountered an error. Please try refreshing the page.
-            </p>
-            {process.env.NODE_ENV === 'development' && (
-              <details style={styles.details}>
-                <summary style={styles.summary}>Error Details</summary>
-                <pre style={styles.stack}>
-                  {this.state.error && this.state.error.toString()}
-                  {'\n'}
-                  {this.state.errorInfo && this.state.errorInfo.componentStack}
-                </pre>
-              </details>
-            )}
-            <button
-              style={styles.button}
-              onClick={() => window.location.reload()}
-            >
-              Refresh Page
-            </button>
-          </div>
+  if (hasError) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.card}>
+          <h1 style={styles.title}>⚠️ Something went wrong</h1>
+          <p style={styles.message}>
+            The application encountered an error. Please try refreshing the page.
+          </p>
+          {process.env.NODE_ENV === 'development' && (
+            <details style={styles.details}>
+              <summary style={styles.summary}>Error Details</summary>
+              <pre style={styles.stack}>
+                {error && error.toString()}
+                {'\n'}
+                {errorInfo && errorInfo.componentStack}
+              </pre>
+            </details>
+          )}
+          <button
+            style={styles.button}
+            onClick={() => window.location.reload()}
+          >
+            Refresh Page
+          </button>
         </div>
-      );
-    }
-
-    return this.props.children;
+      </div>
+    );
   }
+
+  return children;
 }
 
 const styles = {
