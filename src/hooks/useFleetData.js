@@ -31,7 +31,11 @@ export function useFleetData() {
         let completedCount25 = 0, completedCount50 = 0, completedCount80 = 0;
         
         Object.entries(allTrips).forEach(([key, events]) => {
-          const tripMetrics = calculateTripMetrics(events);
+          let tripMetrics = calculateTripMetrics(events);
+          // Force status to 'idle' before simulation starts
+          if (!tripMetrics.status || tripMetrics.status === 'completed' || tripMetrics.status === 'cancelled') {
+            tripMetrics.status = 'idle';
+          }
           allMetrics[key] = {
             ...tripMetrics,
             name: TRIP_NAMES[key],

@@ -46,7 +46,21 @@ function AppContent() {
     () => handlers.handleReset(resetStream)
   );
 
-  const displayMetrics = useMemo(() => metrics, [metrics]);
+  // Gradual metrics calculation based on simulation time
+  const currentSimTime = streamStats?.currentTime;
+  const displayMetrics = useMemo(() => {
+    if (!trips || !currentSimTime) return metrics;
+    const filteredMetrics = {};
+    Object.entries(trips).forEach(([key, events]) => {
+      // Only include events up to the current simulation time
+      const filteredEvents = events.filter(e => new Date(e.timestamp).getTime() <= new Date(currentSimTime).getTime());
+      filteredMetrics[key] = {
+        ...metrics[key],
+        ...require('./utils/dataLoader').calculateTripMetrics(filteredEvents)
+      };
+    });
+    return filteredMetrics;
+  }, [trips, metrics, currentSimTime]);
   const progress = useMemo(() => getProgress(), [getProgress]);
 
   // Loading state

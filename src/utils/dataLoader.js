@@ -195,15 +195,31 @@ export function formatDuration(hours) {
  */
 export function formatTime(timestamp) {
   if (!timestamp) return 'N/A';
-  try {
-    return new Date(timestamp).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  } catch (e) {
+  let dateObj;
+  // Try to parse ISO string or timestamp
+  if (typeof timestamp === 'string') {
+    // Try ISO string or numeric string
+    const parsed = Date.parse(timestamp);
+    if (!isNaN(parsed)) {
+      dateObj = new Date(parsed);
+    } else {
+      return 'Invalid';
+    }
+  } else if (typeof timestamp === 'number') {
+    dateObj = new Date(timestamp);
+  } else if (timestamp instanceof Date) {
+    dateObj = timestamp;
+  } else {
     return 'Invalid';
   }
+  // If date is invalid
+  if (isNaN(dateObj.getTime())) return 'N/A';
+  return dateObj.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
 }

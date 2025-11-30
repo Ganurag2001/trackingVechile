@@ -38,17 +38,17 @@ class MockEventStreamAPI {
    */
   _indexEvents() {
     Object.entries(this.tripsData).forEach(([tripId, tripData]) => {
-      if (!tripData.events || !Array.isArray(tripData.events)) return;
-      
+      let eventsArr = [];
+      if (Array.isArray(tripData)) {
+        eventsArr = tripData;
+      } else if (tripData.events && Array.isArray(tripData.events)) {
+        eventsArr = tripData.events;
+      }
       this.eventsByTrip[tripId] = [];
-      
-      tripData.events.forEach((event) => {
+      eventsArr.forEach((event) => {
         const timestamp = new Date(event.timestamp).getTime();
-        
         this.allEvents.push(event);
         this.eventsByTrip[tripId].push(event);
-        
-        // Track timestamp range
         if (timestamp < this.minTimestamp) this.minTimestamp = timestamp;
         if (timestamp > this.maxTimestamp) this.maxTimestamp = timestamp;
       });
@@ -60,7 +60,16 @@ class MockEventStreamAPI {
       return timeA - timeB;
     });
 
+    // Ensure minTimestamp and maxTimestamp are valid numbers
+    if (!isFinite(this.minTimestamp) || this.minTimestamp === Infinity) {
+      this.minTimestamp = 0;
+    }
+    if (!isFinite(this.maxTimestamp) || this.maxTimestamp === -Infinity) {
+      this.maxTimestamp = 0;
+    }
     this.totalDuration = this.maxTimestamp - this.minTimestamp;
+    // Debug log for timestamp range
+    console.log('[MockEventStreamAPI] minTimestamp:', new Date(this.minTimestamp).toISOString(), 'maxTimestamp:', new Date(this.maxTimestamp).toISOString(), 'totalDuration:', this.totalDuration);
   }
 
   /**
@@ -192,10 +201,14 @@ class MockEventStreamAPI {
    */
   seekToProgress(progress) {
     if (progress < 0 || progress > 1) return;
-    
+    // Guard against invalid totalDuration and minTimestamp
+    if (!isFinite(this.totalDuration) || this.totalDuration <= 0 || !isFinite(this.minTimestamp)) {
+      this.currentTime = 0;
+      this.lastTimestamp = 0;
+      return;
+    }
     this.currentTime = this.totalDuration * progress;
     this.lastTimestamp = 0;
-    
     if (this.isStreaming) {
       this.startTime = Date.now() - (this.currentTime / this.speedMultiplier);
     }
@@ -213,14 +226,56 @@ class MockEventStreamAPI {
    * Get statistics about the stream
    */
   getStatistics() {
+    // Convert relative currentTime to actual timestamp
+    let actualTime = this.minTimestamp + this.currentTime;
+    // Debug log for current time calculation
+    console.log('[MockEventStreamAPI] getStatistics: minTimestamp:', new Date(this.minTimestamp).toISOString(), 'currentTime:', this.currentTime, 'actualTime:', new Date(actualTime).toISOString());
+    let currentTimeStr = null;
+    if (
+      typeof actualTime === 'number' &&
+      isFinite(actualTime) &&
+      !isNaN(actualTime)
+    ) {
+      const dateObj = new Date(actualTime);
+      if (!isNaN(dateObj.getTime())) {
+        try {
+          currentTimeStr = dateObj.toISOString();
+        } catch (e) {
+          currentTimeStr = null;
+        }
+      } else {
+        currentTimeStr = null;
+      }
+    } else {
+      currentTimeStr = null;
+    }
+    let minTimestampStr = null;
+    let maxTimestampStr = null;
+    if (typeof this.minTimestamp === 'number' && isFinite(this.minTimestamp)) {
+      try {
+        minTimestampStr = new Date(this.minTimestamp).toISOString();
+      } catch (e) {
+        minTimestampStr = null;
+      }
+    }
+    if (typeof this.maxTimestamp === 'number' && isFinite(this.maxTimestamp)) {
+      try {
+        maxTimestampStr = new Date(this.maxTimestamp).toISOString();
+      } catch (e) {
+        maxTimestampStr = null;
+      }
+    }
     return {
       progress: this.getProgress(),
-      currentTime: this.currentTime,
+      currentTime: currentTimeStr,
+      relativeTime: this.currentTime,
       totalDuration: this.totalDuration,
       eventCount: this.allEvents.length,
       tripCount: Object.keys(this.eventsByTrip).length,
       speedMultiplier: this.speedMultiplier,
-      isStreaming: this.isStreaming
+      isStreaming: this.isStreaming,
+      minTimestamp: minTimestampStr,
+      maxTimestamp: maxTimestampStr
     };
   }
 

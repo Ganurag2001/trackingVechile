@@ -108,7 +108,17 @@ export function SimulationControls({
         <div className="time-display">
           <div className="time-info">
             <span className="time-label">Current Time:</span>
-            <span className="time-value">{formatTime(currentTime) || '--:--:--'}</span>
+            <span className="time-value">{
+              (function() {
+                const formatted = formatTime(currentTime);
+                if (formatted === 'N/A' || formatted === 'Invalid' || !formatted) {
+                  // Fallback to startTime if available
+                  const fallback = formatTime(startTime);
+                  return fallback !== 'N/A' && fallback !== 'Invalid' ? fallback : '--:--:--';
+                }
+                return formatted;
+              })()
+            }</span>
           </div>
           <div className="time-stats">
             <span className="stat">
